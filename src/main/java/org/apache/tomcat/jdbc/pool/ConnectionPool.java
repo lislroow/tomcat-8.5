@@ -657,7 +657,6 @@ public class ConnectionPool {
      * @throws SQLException Failed to get a connection
      */
     private PooledConnection borrowConnection(int wait, String username, String password) throws SQLException {
-
         if (isClosed()) {
             throw new SQLException("Connection pool closed.");
         } //end if
@@ -809,7 +808,7 @@ public class ConnectionPool {
      */
     protected PooledConnection borrowConnection(long now, PooledConnection con, String username, String password) throws SQLException {
         //we have a connection, lets set it up
-
+        
         //flag to see if we need to nullify
         boolean setToNull = false;
         try {
