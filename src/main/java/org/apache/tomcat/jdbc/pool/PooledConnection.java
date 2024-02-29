@@ -571,6 +571,30 @@ public class PooledConnection implements PooledConnectionMBean {
         boolean transactionCommitted = false;
         Statement stmt = null;
         try {
+            // 이 메소드는 connection 의 validation 을 체크할 때 실행되는 메소드입니다. 
+            // idle 상태의 connection 을 체크할 때도 호출되고, borrow 를 할 때에도 호출됩니다.
+            // 아래 코드는 aws 의 Oracle RDS 와 연결되어 있고, fail-over 실행 시
+            // connection 대상의 url 의 도메인이 fail-over 이후의 변경된 IP 로 재연결될 수 있도록 하는 코드입니다.
+            /*
+             * - 코드 추가 배경
+             *   1) Oracle RDS 의 fail-over 이후 netstat -ntpaueo 로 확인해보면 ESTABLISHED 로 유지되고 있습니다.
+             *   2) 이 상태에서 connection 으로부터 statement 를 생성하고 validationQuery 를 실행하면 대략 900,000 msec 동안 대기 상태가 발생합니다.
+             *   3) statement 에 queryTimeout 시간을 설정하여도 900,000 msec 동안 대기 상태가 됩니다.
+             *      그 이유는 oracle jdbc 드라이버 파일에서 찾을 수 있습니다. 
+             *   4) 900,000 msec 대기 상태를 피하기 위해 connection 객체의 유효 상태를 확인하고 statement 를 실행하는 코드를 추가했습니다.
+             */
+            while (connection == null || connection.isValid(1)) {
+              try {
+                  long wait = 3000L;
+                  System.out.println("[org.apache.tomcat.jdbc.pool.PooledConnection] Attempting to reconnect in '" + wait + " msec'.");
+                  Thread.sleep(wait);
+                  connect();
+              } catch (Exception e) {
+                  System.out.println("[org.apache.tomcat.jdbc.pool.PooledConnection] Connection attempt failed." + e.getMessage());
+              }
+            }
+            // --
+            
             stmt = connection.createStatement();
 
             int validationQueryTimeout = poolProperties.getValidationQueryTimeout();
