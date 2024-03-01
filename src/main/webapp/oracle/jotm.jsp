@@ -79,6 +79,7 @@
       pstmt.setInt(1, nextId);
       pstmt.setString(2, UUID.randomUUID().toString());
       pstmt.execute();
+      conn.commit();
       pstmt.close();
       conn.close();
     } catch (SQLException se) {
