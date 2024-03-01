@@ -5,5 +5,7 @@
   <WatchedResource>${catalina.base}/conf/web.xml</WatchedResource>
 
   <ResourceLink global="jdbc/testDS" name="jdbc/testDS" type="javax.sql.DataSource" />
+  <ResourceLink global="jdbc/oracleDS" name="jdbc/oracleDS" type="javax.sql.DataSource" />
   
+  <JarScanner scanManifest="false" />
 </Context>

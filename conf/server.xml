@@ -14,6 +14,11 @@
               factory="org.apache.tomcat.jdbc.pool.DataSourceFactory"
               maxTotal="10" maxIdle="10" initialSize="2" maxWait="3000"
               validationQuery="SELECT 1 FROM DUAL" testOnBorrow="true" testOnConnect="true" testWhileIdle="true" logAbandoned="true" logValidationErrors="true" />
+    <Resource name="jdbc/oracleDS" type="javax.sql.DataSource" auth="Container" url="jdbc:oracle:thin:@172.28.200.31:1521:ORCLCDB"
+              driverClassName="oracle.jdbc.driver.OracleDriver" username="MK_USER" password="1"
+              factory="org.apache.tomcat.jdbc.pool.DataSourceFactory"
+              maxTotal="10" maxIdle="10" initialSize="1" maxWait="3000"
+              validationQuery="SELECT 1 FROM DUAL" testOnBorrow="true" testOnConnect="true" testWhileIdle="true" logAbandoned="true" logValidationErrors="true" />
   </GlobalNamingResources>
 
   <Service name="Catalina">
@@ -26,7 +31,14 @@
 
       <Host appBase="webapps" autoDeploy="true" name="localhost" unpackWARs="true">
         <Valve className="org.apache.catalina.valves.AccessLogValve" directory="logs" pattern="%h %l %u %t &quot;%r&quot; %s %b" prefix="localhost_access_log" suffix=".txt"/>
-      <Context docBase="tomcat-8.5" path="/" reloadable="false" source="org.eclipse.jst.jee.server:tomcat-8.5"/></Host>
+        <Context docBase="tomcat-8.5" path="/" reloadable="false" source="org.eclipse.jst.jee.server:tomcat-8.5">
+          <Transaction name="UserTransaction"
+                       factory="org.objectweb.jotm.UserTransactionFactory"
+                       auth="Container"
+                       type="javax.transaction.UserTransaction"
+                       jotm.timeout="60" />
+        </Context>
+      </Host>
     </Engine>
   </Service>
 </Server>
