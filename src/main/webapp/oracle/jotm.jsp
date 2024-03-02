@@ -96,8 +96,8 @@
 
   // transaction
   {
-    //utrans.commit();
-    utrans.rollback();
+    utrans.commit();
+    //utrans.rollback();
   }
   
   // fin) SELECT ID, USER_NAME FROM TB_TEST
