@@ -8,12 +8,14 @@
   <GlobalNamingResources>
     <Resource auth="Container" description="User database that can be updated and saved" factory="org.apache.catalina.users.MemoryUserDatabaseFactory" name="UserDatabase" pathname="conf/tomcat-users.xml" type="org.apache.catalina.UserDatabase"/>
     <!-- 211.108.0.92 -->
+    <!-- 
     <Resource name="jdbc/testDS" type="javax.sql.DataSource" auth="Container" 
               url="jdbc:h2:tcp://localhost:9092/primary"
               driverClassName="org.h2.Driver" username="sa" password=""
               factory="org.apache.tomcat.jdbc.pool.DataSourceFactory"
               maxTotal="10" maxIdle="10" initialSize="2" maxWait="3000"
               validationQuery="SELECT 1 FROM DUAL" testOnBorrow="true" testOnConnect="true" testWhileIdle="true" logAbandoned="true" logValidationErrors="true" />
+    -->
     <!--
     <Resource name="jdbc/oracleDS" type="javax.sql.DataSource" auth="Container" url="jdbc:oracle:thin:@172.28.200.31:1521:ORCLCDB"
         driverClassName="oracle.jdbc.driver.OracleDriver" username="MK_USER" password="1"
@@ -25,9 +27,20 @@
         factory="org.objectweb.jotm.datasource.DataSourceFactory"
         max="10" min="3"
         testStmt="SELECT 1 FROM DUAL" />
+    <Resource name="jdbc/oracleDS" type="javax.sql.DataSource" auth="Container" url="jdbc:oracle:thin:@172.28.200.31:1521/ORCLCDB"
+        driverClassName="oracle.jdbc.driver.OracleDriver" username="MK_USER" password="1"
+        factory="org.objectweb.jotm.datasource.DataSourceFactory"
+        max="10" min="3"
+        testStmt="SELECT 1 FROM DUAL" />
     -->
-    <Resource name="jdbc/oracleDS" type="javax.sql.DataSource" auth="Container" url="jdbc:oracle:thin:@172.28.200.31:1521:ORCLCDB"
-        driverClassName="oracle.jdbc.replay.OracleXADataSourceImpl" username="MK_USER" password="1"
+    <Resource name="jdbc/h2DS" type="javax.sql.DataSource" auth="Container" 
+          url="jdbc:h2:tcp://localhost:9092/primary"
+          driverClassName="org.h2.Driver" username="sa" password=""
+          factory="org.objectweb.jotm.datasource.DataSourceFactory"
+          max="10" min="3"
+          testStmt="SELECT NOW() FROM DUAL" />
+    <Resource name="jdbc/oracleDS" type="javax.sql.DataSource" auth="Container" url="jdbc:oracle:thin:@172.28.200.31:1521/ORCLCDB"
+        driverClassName="oracle.jdbc.driver.OracleDriver" username="MK_USER" password="1"
         factory="org.objectweb.jotm.datasource.DataSourceFactory"
         max="10" min="3"
         testStmt="SELECT 1 FROM DUAL" />
