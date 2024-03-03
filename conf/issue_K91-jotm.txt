@@ -1,0 +1,207 @@
+
+### 1. 라이브러리 구성
+
+#### 1.1 현행 시스템
+
+```
+/engn001/servers/open/lib
+  jta-1.0.1.jar
+  ojdbc8-19.20.0.0.jar
+
+/usr/Application/OPEN/OPEN.ear/OPENWeb.war/WEB-INF/lib
+  commons-logging-1.2.jar
+  howl-1.0.1-1.jar
+  javax.resource-api-1.7.1.jar
+  jotm-2.0.10.jar
+  jta-1.0.1.jar
+```
+
+
+#### 1.2 테스트 환경
+
+```
+/engn001/servers/open/lib
+  carol-3.0.10.jar
+  carol-interceptors-1.0.1.jar
+  commons-logging-1.2.jar
+  connector-api-1.5.jar
+  jotm-core-2.2.3.jar
+  jotm-datasource-2.2.3.jar
+  ojdbc8-19.20.0.0.jar
+  ow2-jta-1.1-spec-1.0.8.jar
+  xapool-1.5.0.jar
+
+WEB-INF/lib
+  carol-3.0.10.jar
+  carol-interceptors-1.0.1.jar
+  commons-logging-1.1.jar
+  commons-logging-api-1.1.jar
+  connector-api-1.5.jar
+  howl-1.0.1-1.jar
+  irmi-1.1.2.jar
+  jacorb-2.3.1.jar
+  jotm-core-2.2.3.jar
+  jotm-datasource-2.2.3.jar
+  ojdbc8-19.20.0.0.jar
+  ow2-jta-1.1-spec-1.0.8.jar
+  xapool-1.5.0.jar
+```
+
+### 2. 설정 파일
+
+#### 2.1 현행 시스템
+
+```
+<!-- conf/server.xml -->
+  <Resource name="jdbc/oracleDS" type="javax.sql.DataSource" auth="Container" url="jdbc:oracle:thin:@172.28.200.31:1521:ORCLCDB"
+      driverClassName="oracle.jdbc.driver.OracleDriver" username="MK_USER" password=""
+      factory="org.objectweb.jotm.datasource.DataSourceFactory"
+      maxTotal="10" maxIdle="10" initialSize="1" maxWait="3000"
+      validationQuery="SELECT 1 FROM DUAL" testOnBorrow="true" testOnConnect="true" testWhileIdle="true" logAbandoned="true" logValidationErrors="true" />
+
+<!-- conf/Catalina/localhost/ROOT.xml -->
+  <Transaction name="UserTransaction"
+     factory="org.objectweb.jotm.UserTransactionFactory"
+     auth="Container"
+     type="javax.transaction.UserTransaction"
+     jotm.timeout="60" />
+```
+
+#### 2.2 테스트 환경
+
+- DBCP 는 jotm 의 `org.objectweb.jotm.datasource.DataSourceFactory` 로 설정해야 합니다.
+- UserTransaction 으로 분산 트랜잭션의 begin/terminate 을 관리합니다.
+- oracle jdbc connection 객체 속성인 autoCommit 을 false 로 설정해야 합니다.  
+
+```
+<!-- conf/server.xml -->
+  <Resource name="jdbc/oracleDS" type="javax.sql.DataSource" auth="Container" url="jdbc:oracle:thin:@172.28.200.31:1521:ORCLCDB"
+      driverClassName="oracle.jdbc.replay.OracleXADataSourceImpl" username="MK_USER" password=""
+      factory="org.objectweb.jotm.datasource.DataSourceFactory"
+      max="10" min="3"
+      testStmt="SELECT 1 FROM DUAL" />
+
+<!-- conf/Catalina/localhost/ROOT.xml -->
+  <Transaction name="UserTransaction"
+     factory="org.objectweb.jotm.UserTransactionFactory"
+     auth="Container"
+     type="javax.transaction.UserTransaction"
+     jotm.timeout="60" />
+
+<!-- vmargs -->
+  -Doracle.jdbc.autoCommitSpecCompliant=false
+```
+
+#### 3. 테스트
+
+/tomcat-8.5/src/main/webapp/oracle/jotm.jsp
+
+1) `java:comp/UserTransaction` 을 lookup 하고, 트랜잭션을 begin 합니다.
+2) 
+
+```
+<%@page import="java.util.UUID"%>
+<%@page import="java.sql.PreparedStatement"%>
+<%@page import="javax.transaction.UserTransaction"%>
+<%@page import="java.sql.ResultSet"%>
+<%@page import="java.sql.SQLException"%>
+<%@page import="java.sql.Statement"%>
+<%@page import="java.sql.Connection"%>
+<%@page import="javax.sql.DataSource"%>
+<%@page import="javax.naming.InitialContext"%>
+
+<%
+  InitialContext initialContext = new InitialContext();
+  //seq #1) initialContext.lookup("java:comp/UserTransaction")
+  UserTransaction utrans = null;
+  {
+    utrans = (UserTransaction) initialContext.lookup("java:comp/UserTransaction");
+  }
+  
+  // begin transaction
+  {
+    utrans.begin();
+  }
+  
+  DataSource ds = (DataSource) initialContext.lookup("java:comp/env/jdbc/oracleDS");
+  Connection conn = null;
+  Statement stmt = null;
+  
+  // seq #2) SELECT NVL(MAX(ID), 0)+1 FROM TB_TEST
+  int nextId = -1;
+  {
+    try {
+      conn = ds.getConnection();
+      stmt = conn.createStatement();
+      stmt.execute("SELECT NVL(MAX(ID), 0)+1 FROM TB_TEST");
+      ResultSet rs = stmt.getResultSet();
+      stmt.close();
+      conn.close();
+    } catch (SQLException se) {
+      out.println(se.toString()); 
+    } catch (Exception e) {
+      out.println(e.toString());
+    } finally {
+      try { if (stmt != null) stmt.close(); } catch (Exception e) {} 
+      try { if (conn != null) conn.close(); } catch (Exception e) {} 
+    }
+  }
+  
+  //seq #3) INSERT INTO TB_TEST (ID, USER_NAME) VALUES (?, ?)
+  {
+    PreparedStatement pstmt = null;
+    try {
+      conn = ds.getConnection();
+      {
+        if (conn.getAutoCommit()) {
+          conn.setAutoCommit(false);
+        }
+      }
+      pstmt = conn.prepareStatement("INSERT INTO TB_TEST (ID, USER_NAME) VALUES (?, ?)");
+      pstmt.setInt(1, nextId);
+      pstmt.setString(2, UUID.randomUUID().toString());
+      pstmt.execute();
+      conn.commit();
+      pstmt.close();
+      conn.close();
+    } catch (SQLException se) {
+      out.println(se.toString()); 
+    } catch (Exception e) {
+      out.println(e.toString());
+    } finally {
+      try { if (pstmt != null) pstmt.close(); } catch (Exception e) {} 
+      try { if (conn != null) conn.close(); } catch (Exception e) {} 
+    }
+  }
+  
+  // transaction
+  {
+    utrans.commit();
+    //utrans.rollback();
+  }
+  
+  // fin) SELECT ID, USER_NAME FROM TB_TEST
+  {
+    out.println("<div>fin) SELECT ID, USER_NAME FROM TB_TEST</div>");
+    try {
+      conn = ds.getConnection();
+      stmt = conn.createStatement();
+      stmt.execute("SELECT ID, USER_NAME FROM TB_TEST ORDER BY 1 DESC");
+      ResultSet rs = stmt.getResultSet();
+      while (rs.next()) {
+        int id = rs.getInt(1);
+        String userName = rs.getString(2);
+      }
+      stmt.close();
+      conn.close();
+    } catch (SQLException se) {
+      out.println(se.toString()); 
+    } catch (Exception e) {
+      out.println(e.toString());
+    } finally {
+      try { if (stmt != null) stmt.close(); } catch (Exception e) {} 
+      try { if (conn != null) conn.close(); } catch (Exception e) {} 
+    }
+  }
+%>
+```
